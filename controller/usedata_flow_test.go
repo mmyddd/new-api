@@ -99,6 +99,53 @@ func TestGetAllFlowQuotaDatesUsesRootDimensions(t *testing.T) {
 	require.Equal(t, "east", payload.Data[0].ChannelName)
 }
 
+func TestGetAllFlowQuotaDatesFiltersByTokenName(t *testing.T) {
+	setupFlowControllerTestDB(t)
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Set("role", common.RoleRootUser)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/data/flow?start_timestamp=1000&end_timestamp=2000&token_name=backup", nil)
+
+	GetAllFlowQuotaDates(ctx)
+
+	payload := decodeFlowQuotaResponse(t, recorder)
+	require.Len(t, payload.Data, 1)
+	require.Equal(t, "bob", payload.Data[0].Username)
+	require.Equal(t, "backup", payload.Data[0].TokenName)
+	require.Equal(t, "gpt-b", payload.Data[0].ModelName)
+}
+
+func TestGetUserFlowQuotaDatesFiltersByOwnTokenName(t *testing.T) {
+	setupFlowControllerTestDB(t)
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Set("id", 1)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/data/flow/self?start_timestamp=1000&end_timestamp=2000&token_name=primary", nil)
+
+	GetUserFlowQuotaDates(ctx)
+
+	payload := decodeFlowQuotaResponse(t, recorder)
+	require.Len(t, payload.Data, 1)
+	require.Equal(t, "primary", payload.Data[0].TokenName)
+	require.Equal(t, "gpt-a", payload.Data[0].ModelName)
+}
+
+func TestGetUserFlowQuotaDatesRejectsAnotherUsersToken(t *testing.T) {
+	setupFlowControllerTestDB(t)
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Set("id", 1)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/data/flow/self?start_timestamp=1000&end_timestamp=2000&token_name=backup", nil)
+
+	GetUserFlowQuotaDates(ctx)
+
+	payload := decodeFlowQuotaResponse(t, recorder)
+	require.Empty(t, payload.Data)
+}
+
 func TestGetUserFlowQuotaDatesRestrictsToAuthenticatedUser(t *testing.T) {
 	setupFlowControllerTestDB(t)
 

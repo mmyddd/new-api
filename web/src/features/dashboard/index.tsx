@@ -311,7 +311,7 @@ export function Dashboard() {
           onFilterChange={handleFilterChange}
           onReset={handleResetFilters}
           titleKey='Flow Filters'
-          descriptionKey='Filter the traffic flow view by time range and user.'
+          descriptionKey='Filter the traffic flow view by time range, user and API key.'
         />
       </>
     ) : null
