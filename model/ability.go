@@ -151,9 +151,9 @@ func GetChannel(group string, model string, retry int, requestPath string) (*Cha
 // model for the DB (non-memory-cache) selection path. Only Advanced Custom
 // (type 58) channels are path-checked: kept only when one of their routes matches
 // requestPath and model; all other channel types always pass. When requestPath is
-// empty, filtering is skipped. Channels that explicitly declare endpoint types
-// are kept only when the declared list contains the endpoint type derived from
-// requestPath.
+// empty, filtering is skipped. Custom (type 8) channels that explicitly declare
+// endpoint types are kept only when the declared list contains the endpoint type
+// derived from requestPath; endpoint types are only honored on Custom channels.
 func filterAbilitiesByRequestPathAndModel(abilities []Ability, requestPath string, model string) []Ability {
 	if requestPath == "" || len(abilities) == 0 {
 		return abilities
@@ -194,7 +194,7 @@ func filterAbilitiesByRequestPathAndModel(abilities []Ability, requestPath strin
 				continue
 			}
 		}
-		if ok && endpointType != "" && !channel.SupportsEndpointType(endpointType) {
+		if ok && channel.Type == constant.ChannelTypeCustom && endpointType != "" && !channel.SupportsEndpointType(endpointType) {
 			continue
 		}
 		filtered = append(filtered, ability)

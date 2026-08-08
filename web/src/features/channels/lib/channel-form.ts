@@ -560,7 +560,9 @@ export function transformChannelToFormDefaults(
     openai_organization: channel.openai_organization || '',
     models: channel.models || '',
     group: parseGroups(channel.group || 'default'),
-    endpoint_type: parseGroups(channel.endpoint_type || ''),
+    // endpoint_type 仅对自定义渠道 (type 8) 开放，其他类型强制为空
+    endpoint_type:
+      channel.type === 8 ? parseGroups(channel.endpoint_type || '') : [],
     model_mapping: channel.model_mapping || '',
     priority: channel.priority || 0,
     weight: channel.weight || 0,
@@ -787,7 +789,8 @@ export function transformFormDataToCreatePayload(formData: ChannelFormValues): {
     openai_organization: formData.openai_organization || null,
     models: formData.models,
     group: formatGroups(formData.group),
-    endpoint_type: formatGroups(formData.endpoint_type) || null,
+    endpoint_type:
+      formData.type === 8 ? formatGroups(formData.endpoint_type) || null : null,
     model_mapping: formData.model_mapping || null,
     priority: formData.priority || null,
     weight: formData.weight || null,
@@ -836,7 +839,8 @@ export function transformFormDataToUpdatePayload(
     openai_organization: formData.openai_organization || null,
     models: formData.models,
     group: formatGroups(formData.group),
-    endpoint_type: formatGroups(formData.endpoint_type),
+    endpoint_type:
+      formData.type === 8 ? formatGroups(formData.endpoint_type) || '' : '',
     model_mapping: formData.model_mapping || null,
     priority: formData.priority ?? 0,
     weight: formData.weight ?? 0,
@@ -874,7 +878,8 @@ export function transformFormDataToUpdatePayload(
   payload.status_code_mapping = formData.status_code_mapping || ''
   payload.param_override = formData.param_override || ''
   payload.header_override = formData.header_override || ''
-  payload.endpoint_type = formatGroups(formData.endpoint_type) || ''
+  payload.endpoint_type =
+    formData.type === 8 ? formatGroups(formData.endpoint_type) || '' : ''
 
   return payload
 }

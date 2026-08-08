@@ -535,8 +535,11 @@ func validateChannel(channel *model.Channel, isAdd bool) error {
 		}
 	}
 
-	// 校验渠道声明的端点类型，值必须是已知的端点类型，否则永远不会匹配请求
+	// 校验渠道声明的端点类型：仅 Custom (type 8) 渠道开放，值必须是已知的端点类型
 	if channel.EndpointType != nil && strings.TrimSpace(*channel.EndpointType) != "" {
+		if channel.Type != constant.ChannelTypeCustom {
+			return fmt.Errorf("端点类型仅对自定义渠道开放")
+		}
 		for _, et := range strings.Split(*channel.EndpointType, ",") {
 			et = strings.TrimSpace(et)
 			if et == "" {

@@ -504,6 +504,11 @@ func (channel *Channel) GetBaseURL() string {
 	if url == "" {
 		url = constant.ChannelBaseURLs[channel.Type]
 	}
+	// Custom (type 8) 渠道的 base_url 语义是完整上游 URL（支持 {model} 占位符），
+	// 由 relaycommon.ResolveCustomChannelURL 按请求端点类型解析，不做通用 /v1 剥离
+	if channel.Type == constant.ChannelTypeCustom {
+		return url
+	}
 	// 去除末尾 /v1，避免与上游请求路径（/v1/chat/completions 等）拼接时产生 /v1/v1 重复
 	return common.NormalizeBaseURL(url)
 }

@@ -173,8 +173,9 @@ func Distribute() func(c *gin.Context) {
 // channelSupportsRequestPath reports whether a channel can serve the request path.
 // Only Advanced Custom (type 58) channels are path-checked; all other channel types
 // always pass. A type-58 channel is usable only when one of its routes matches.
-// Channels that explicitly declare endpoint types must declare the endpoint type
-// derived from requestPath.
+// Custom (type 8) channels that explicitly declare endpoint types must declare
+// the endpoint type derived from requestPath; endpoint types are only honored
+// on Custom channels.
 func channelSupportsRequestPath(channel *model.Channel, requestPath string, requestModel string) bool {
 	if channel == nil {
 		return false
@@ -186,6 +187,9 @@ func channelSupportsRequestPath(channel *model.Channel, requestPath string, requ
 		}
 	}
 	endpointType := common.Path2EndpointType(requestPath)
+	if channel.Type != constant.ChannelTypeCustom {
+		return true
+	}
 	return endpointType == "" || channel.SupportsEndpointType(endpointType)
 }
 

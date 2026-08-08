@@ -167,9 +167,10 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 	//case constant.ChannelTypeMiniMax:
 	//	return minimax.GetRequestURL(info)
 	case constant.ChannelTypeCustom:
-		url := info.ChannelBaseUrl
-		url = strings.Replace(url, "{model}", info.UpstreamModelName, -1)
-		return url, nil
+		// Custom 渠道 base_url 是完整上游 URL（支持 {model} 占位符）；当请求端点
+		// 类型可推导时按端点类型自动拼接路径（chat → /v1/chat/completions、
+		// responses → /v1/responses），使同一渠道可同时服务多个端点
+		return relaycommon.ResolveCustomChannelURL(info.ChannelBaseUrl, info.RequestURLPath, info.UpstreamModelName), nil
 	default:
 		if (info.RelayFormat == types.RelayFormatClaude || info.RelayFormat == types.RelayFormatGemini) &&
 			info.RelayMode != relayconstant.RelayModeResponses &&

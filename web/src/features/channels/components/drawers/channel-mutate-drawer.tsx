@@ -1319,8 +1319,9 @@ export function ChannelMutateDrawer({
 
   // Normalize base_url: when the entered URL already contains an endpoint path
   // (/chat/completions or /responses), strip it, force a /v1 ending and record the
-  // corresponding endpoint type on the channel. The relay appends endpoint paths
-  // to a /v1-ending base URL automatically, so a full URL is treated as a base URL.
+  // corresponding endpoint type on the channel. The relay appends the endpoint
+  // path for the request's endpoint type to a /v1-ending base URL automatically
+  // (including Custom channels, whose base URL is resolved per endpoint type).
   useEffect(() => {
     if (!currentBaseUrl) return
     const base = currentBaseUrl.replace(/\/+$/, '')
@@ -3350,32 +3351,37 @@ export function ChannelMutateDrawer({
                               )}
                             />
 
-                            <FormField
-                              control={form.control}
-                              name='endpoint_type'
-                              render={({ field }) => (
-                                <FormItem className='mt-4 space-y-3'>
-                                  <div className='space-y-1'>
-                                    <FormLabel>{t('Endpoint Type')}</FormLabel>
-                                    <FormDescription>
-                                      {t(
-                                        'Leave empty to support all endpoint types'
-                                      )}
-                                    </FormDescription>
-                                  </div>
-                                  <FormControl>
-                                    <MultiSelect
-                                      options={endpointTypeOptions}
-                                      selected={field.value ?? []}
-                                      onChange={field.onChange}
-                                      placeholder={t('Select endpoint types')}
-                                      maxVisibleChips={8}
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
+                            {/* Endpoint Type 仅对自定义 (Custom, type 8) 渠道开放 */}
+                            {currentType === 8 && (
+                              <FormField
+                                control={form.control}
+                                name='endpoint_type'
+                                render={({ field }) => (
+                                  <FormItem className='mt-4 space-y-3'>
+                                    <div className='space-y-1'>
+                                      <FormLabel>
+                                        {t('Endpoint Type')}
+                                      </FormLabel>
+                                      <FormDescription>
+                                        {t(
+                                          'Leave empty to support all endpoint types'
+                                        )}
+                                      </FormDescription>
+                                    </div>
+                                    <FormControl>
+                                      <MultiSelect
+                                        options={endpointTypeOptions}
+                                        selected={field.value ?? []}
+                                        onChange={field.onChange}
+                                        placeholder={t('Select endpoint types')}
+                                        maxVisibleChips={8}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            )}
 
                             <Separator className='my-4' />
 

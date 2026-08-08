@@ -37,6 +37,55 @@ func GetFullRequestURL(baseURL string, requestURL string, channelType int) strin
 	return fullRequestURL
 }
 
+// customChannelEndpointPathSuffixes 是 Custom (type 8) 渠道 base_url 中可能携带的
+// 标准端点路径后缀。Custom 渠道的 base_url 既可能是完整上游 URL（旧数据），
+// 也可能是规范化后的基础 URL（以 /v1 结尾），解析时先剥离后缀得到基础 URL，
+// 再按请求端点类型拼接对应路径。
+var customChannelEndpointPathSuffixes = []string{
+	"/v1/chat/completions",
+	"/v1/responses/compact",
+	"/v1/responses",
+	"/v1/alpha/search",
+	"/v1/messages",
+	"/v1/rerank",
+	"/v1/images/generations",
+	"/v1/embeddings",
+	"/v1/video/generations",
+}
+
+// ResolveCustomChannelURL 计算 Custom (type 8) 渠道的上游 URL。
+// Custom 渠道的 base_url 语义是"完整上游 URL"，支持 {model} 占位符；当渠道按端点
+// 类型选路时（请求路径能推导出端点类型），将 base_url 解析为基础 URL 并按请求
+// 端点类型拼接对应端点路径（如 chat → /v1/chat/completions、responses →
+// /v1/responses），使同一渠道可同时服务多个端点。无法解析（自定义路径）时
+// 保持 base_url 原样，向后兼容。
+func ResolveCustomChannelURL(baseURL string, requestPath string, model string) string {
+	raw := strings.Replace(baseURL, "{model}", model, -1)
+	base := raw
+	stripped := false
+	for _, suffix := range customChannelEndpointPathSuffixes {
+		if strings.HasSuffix(base, suffix) {
+			base = strings.TrimSuffix(base, suffix)
+			stripped = true
+			break
+		}
+	}
+	endpointType := common.Path2EndpointType(requestPath)
+	if !stripped && !strings.HasSuffix(strings.TrimRight(base, "/"), "/v1") {
+		// 既不是标准端点路径形态也不是基础 URL 形态：自定义完整 URL，保持原样
+		return raw
+	}
+	if endpointType == "" {
+		return raw
+	}
+	endpointInfo, ok := common.GetDefaultEndpointInfo(endpointType)
+	if !ok {
+		return raw
+	}
+	path := strings.Replace(endpointInfo.Path, "{model}", model, -1)
+	return common.NormalizeBaseURL(base) + path
+}
+
 func SanitizeURLForLog(rawURL string) string {
 	if rawURL == "" {
 		return rawURL
