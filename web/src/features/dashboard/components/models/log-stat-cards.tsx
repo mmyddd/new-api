@@ -21,7 +21,7 @@ import { useTranslation } from 'react-i18next'
 
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { getLogsStat, getUserQuotaDates } from '@/features/dashboard/api'
+import { getUserQuotaDates } from '@/features/dashboard/api'
 import { useModelStatCardsConfig } from '@/features/dashboard/hooks/use-dashboard-config'
 import {
   buildQueryParams,
@@ -102,34 +102,33 @@ export function LogStatCards(props: LogStatCardsProps) {
         if (abortController.signal.aborted) return
         const data = res?.data || []
         setStats(calculateDashboardStats(data))
+        // token 构成与总 Token 数卡片同源（quota_data 聚合），一起滞后、一起刷新
+        setTokenBreakdown({
+          input: data.reduce(
+            (sum, item) => sum + (Number(item.input_tokens) || 0),
+            0
+          ),
+          cache: data.reduce(
+            (sum, item) => sum + (Number(item.cache_tokens) || 0),
+            0
+          ),
+          output: data.reduce(
+            (sum, item) => sum + (Number(item.output_tokens) || 0),
+            0
+          ),
+        })
         onDataUpdate?.(data, false)
       })
       .catch(() => {
         if (abortController.signal.aborted) return
         setStats(null)
+        setTokenBreakdown(null)
         setError(true)
         onDataUpdate?.([], false)
       })
       .finally(() => {
         if (!abortController.signal.aborted) {
           setLoading(false)
-        }
-      })
-
-    // 拉取时间范围内的 token 构成（输入/缓存/输出），用于 Total Tokens 卡片小字
-    void getLogsStat(buildQueryParams(timeRange, filters), isAdmin)
-      .then((res) => {
-        if (abortController.signal.aborted) return
-        const data = res?.data
-        setTokenBreakdown({
-          input: Number(data?.input_tokens) || 0,
-          cache: Number(data?.cache_tokens) || 0,
-          output: Number(data?.output_tokens) || 0,
-        })
-      })
-      .catch(() => {
-        if (!abortController.signal.aborted) {
-          setTokenBreakdown(null)
         }
       })
 
@@ -150,11 +149,12 @@ export function LogStatCards(props: LogStatCardsProps) {
       ? Math.round((tokenBreakdown.cache / tokenBreakdown.input) * 100)
       : 0
 
-  // Total Tokens 卡片小字完整文案：空间不足时自动换行，title 供悬停查看
+  // Total Tokens 卡片小字：固定三段，每段独占一行且段内不换行；
+  // 第一行缓存读在前、总读取在后；title 为完整一行文案，供悬停查看
   const tokenBreakdownText = tokenBreakdown
-    ? `${t('Input')} ${formatNumber(tokenBreakdown.input, locale)} / ${t(
-        'Cache'
-      )} ${formatNumber(tokenBreakdown.cache, locale)} | ${t(
+    ? `${t('Cache Read')} ${formatNumber(tokenBreakdown.cache, locale)} / ${t(
+        'Total Read'
+      )} ${formatNumber(tokenBreakdown.input, locale)} | ${t(
         'Cache Hit Rate'
       )} ${cacheHitRate}% | ${t('Output')} ${formatNumber(
         tokenBreakdown.output,
@@ -218,10 +218,20 @@ export function LogStatCards(props: LogStatCardsProps) {
                 </div>
                 {it.key === 'tokens' && tokenBreakdown && (
                   <div
-                    className='text-muted-foreground/60 mt-1 hidden text-[11px] leading-4 tabular-nums md:block'
+                    className='mt-1 hidden md:block'
                     title={tokenBreakdownText}
                   >
-                    {tokenBreakdownText}
+                    <div className='text-muted-foreground/60 whitespace-nowrap text-[11px] leading-4 tabular-nums'>
+                      {t('Cache Read')} {formatNumber(tokenBreakdown.cache, locale)}{' '}
+                      / {t('Total Read')}{' '}
+                      {formatNumber(tokenBreakdown.input, locale)}
+                    </div>
+                    <div className='text-muted-foreground/60 whitespace-nowrap text-[11px] leading-4 tabular-nums'>
+                      {t('Cache Hit Rate')} {cacheHitRate}%
+                    </div>
+                    <div className='text-muted-foreground/60 whitespace-nowrap text-[11px] leading-4 tabular-nums'>
+                      {t('Output')} {formatNumber(tokenBreakdown.output, locale)}
+                    </div>
                   </div>
                 )}
                 <div className='text-muted-foreground/60 mt-1 hidden text-xs md:block'>

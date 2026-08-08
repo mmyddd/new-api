@@ -218,17 +218,20 @@ function MobileTokensField({ log }: { log: UsageLog }) {
     <div className='bg-muted/20 min-w-0 rounded-md px-2 py-1.5'>
       <div className='flex flex-col gap-0.5'>
         <span className='font-mono text-xs font-medium tabular-nums'>
-          {promptTokens.toLocaleString()} / {completionTokens.toLocaleString()}
+          <span className='text-muted-foreground/60'>{t('Read')} </span>
+          {promptTokens.toLocaleString()} /{' '}
+          <span className='text-muted-foreground/60'>{t('Write')} </span>
+          {completionTokens.toLocaleString()}
         </span>
         {showCache ? (
           <div className='text-muted-foreground flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] leading-none'>
             {cacheReadTokens > 0 && (
               <span>
-                {t('Cache')}↓ {cacheReadTokens.toLocaleString()}
+                {t('Cache')} {t('Read')} {cacheReadTokens.toLocaleString()}
               </span>
             )}
             {cacheWriteTokens > 0 && (
-              <span>↑ {cacheWriteTokens.toLocaleString()}</span>
+              <span>{t('Write')} {cacheWriteTokens.toLocaleString()}</span>
             )}
           </div>
         ) : (
