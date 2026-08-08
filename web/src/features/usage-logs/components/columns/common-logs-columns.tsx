@@ -44,6 +44,7 @@ import { LOG_TYPE_ALL_VALUE } from '../../constants'
 import type { UsageLog } from '../../data/schema'
 import {
   formatModelName,
+  getFreshPromptTokens,
   getTieredBillingSummary,
   hasAnyCacheTokens,
   parseLogOther,
@@ -651,9 +652,10 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
 
         const other = parseLogOther(log.other)
 
-        const promptTokens = log.prompt_tokens || 0
+        // prompt 列只显示 fresh（非缓存）token，缓存数量单独展示
+        const promptTokens = getFreshPromptTokens(log.prompt_tokens || 0, other)
         const completionTokens = log.completion_tokens || 0
-        if (promptTokens === 0 && completionTokens === 0) {
+        if ((log.prompt_tokens || 0) === 0 && completionTokens === 0) {
           return <span className='text-muted-foreground text-xs'>-</span>
         }
 

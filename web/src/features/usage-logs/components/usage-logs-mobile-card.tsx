@@ -40,7 +40,7 @@ import { cn } from '@/lib/utils'
 
 import { LOG_TYPE_ENUM } from '../constants'
 import type { UsageLog } from '../data/schema'
-import { parseLogOther } from '../lib/format'
+import { parseLogOther, getFreshPromptTokens } from '../lib/format'
 import {
   getLogTypeConfig,
   isDisplayableLogType,
@@ -193,9 +193,11 @@ function MobileTokensField({ log }: { log: UsageLog }) {
 
   if (!isDisplayableLogType(log.type)) return null
 
-  const promptTokens = log.prompt_tokens || 0
+  const other = parseLogOther(log.other)
+  // prompt 只显示 fresh（非缓存）token，缓存数量单独展示
+  const promptTokens = getFreshPromptTokens(log.prompt_tokens || 0, other)
   const completionTokens = log.completion_tokens || 0
-  if (promptTokens === 0 && completionTokens === 0) {
+  if ((log.prompt_tokens || 0) === 0 && completionTokens === 0) {
     return (
       <div className='bg-muted/20 min-w-0 rounded-md px-2 py-1.5'>
         <span className='text-muted-foreground text-xs'>-</span>
@@ -203,7 +205,6 @@ function MobileTokensField({ log }: { log: UsageLog }) {
     )
   }
 
-  const other = parseLogOther(log.other)
   const cacheReadTokens = other?.cache_tokens || 0
   const cacheWrite5m = other?.cache_creation_tokens_5m || 0
   const cacheWrite1h = other?.cache_creation_tokens_1h || 0

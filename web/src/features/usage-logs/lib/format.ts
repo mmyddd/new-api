@@ -311,6 +311,25 @@ export function hasAnyCacheTokens(
   )
 }
 
+/**
+ * 计算非缓存（fresh）的输入 token 数：总输入减去缓存读取与缓存写入。
+ * 日志展示时 prompt 列只显示 fresh 值，缓存数量单独以 Cache↓/↑ 展示。
+ */
+export function getFreshPromptTokens(
+  promptTokens: number,
+  other: LogOtherData | null | undefined
+): number {
+  if (!other) return promptTokens
+  const cacheRead = other.cache_tokens || 0
+  const cacheWrite5m = other.cache_creation_tokens_5m || 0
+  const cacheWrite1h = other.cache_creation_tokens_1h || 0
+  const cacheWrite =
+    cacheWrite5m > 0 || cacheWrite1h > 0
+      ? cacheWrite5m + cacheWrite1h
+      : other.cache_creation_tokens || 0
+  return Math.max(promptTokens - cacheRead - cacheWrite, 0)
+}
+
 export function getTieredBillingSummary(
   other: LogOtherData | null
 ): TieredBillingSummary | null {

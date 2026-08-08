@@ -66,6 +66,7 @@ import { cn } from '@/lib/utils'
 import type { UsageLog } from '../../data/schema'
 import {
   parseLogOther,
+  getFreshPromptTokens,
   getParamOverrideActionLabel,
   parseAuditLine,
   decodeBillingExprB64,
@@ -407,13 +408,14 @@ function TokenBreakdown(props: { log: UsageLog; other: LogOtherData }) {
   const { t } = useTranslation()
   const { log, other } = props
 
-  const promptTokens = log.prompt_tokens || 0
+  // Input Tokens 只显示 fresh（非缓存）token，缓存数量单独展示
+  const promptTokens = getFreshPromptTokens(log.prompt_tokens || 0, other)
   const completionTokens = log.completion_tokens || 0
   const cacheRead = other.cache_tokens || 0
   const cacheWrite = other.cache_creation_tokens || 0
   const cacheWrite5m = other.cache_creation_tokens_5m || 0
   const cacheWrite1h = other.cache_creation_tokens_1h || 0
-  const hasTokens = promptTokens > 0 || completionTokens > 0
+  const hasTokens = (log.prompt_tokens || 0) > 0 || completionTokens > 0
 
   if (!hasTokens) return null
 
