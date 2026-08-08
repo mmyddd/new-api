@@ -54,16 +54,13 @@ func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayIn
 }
 
 func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.ClaudeRequest) (any, error) {
-	//if !strings.Contains(request.Model, "claude") {
-	//	return nil, fmt.Errorf("you are using openai channel type with path /v1/messages, only claude model supported convert, but got %s", request.Model)
-	//}
-	//if common.DebugEnabled {
-	//	bodyBytes := []byte(common.GetJsonString(request))
-	//	err := os.WriteFile(fmt.Sprintf("claude_request_%s.txt", c.GetString(common.RequestIdKey)), bodyBytes, 0644)
-	//	if err != nil {
-	//		println(fmt.Sprintf("failed to save request body to file: %v", err))
-	//	}
-	//}
+	// Custom (type 8) 渠道声明 anthropic 端点时，上游按 Anthropic 规范解析请求体，
+	// 原样透传（保持 Anthropic 格式，不转成 OpenAI chat 格式），
+	// 保证 tools / thinking 等 Anthropic 专属字段与上游兼容
+	if info.ChannelType == constant.ChannelTypeCustom &&
+		common.Path2EndpointType(info.RequestURLPath) == constant.EndpointTypeAnthropic {
+		return request, nil
+	}
 	result, err := service.ConvertRequest(c, info, types.RelayFormatOpenAI, request)
 	if err != nil {
 		return nil, err
