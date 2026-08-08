@@ -61,6 +61,7 @@ function formatStatNumber(value: number, locale: Intl.LocalesArgument) {
 export function LogStatCards(props: LogStatCardsProps) {
   const { i18n, t } = useTranslation()
   const statCardsConfig = useModelStatCardsConfig()
+  const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const user = useAuthStore((state) => state.auth.user)
   const isAdmin = !!(user?.role && user.role >= 10)
   const [stats, setStats] = useState<{
@@ -116,7 +117,7 @@ export function LogStatCards(props: LogStatCardsProps) {
       })
 
     // 拉取时间范围内的 token 构成（输入/缓存/输出），用于 Total Tokens 卡片小字
-    void getLogsStat(buildQueryParams(timeRange, filters))
+    void getLogsStat(buildQueryParams(timeRange, filters), isAdmin)
       .then((res) => {
         if (abortController.signal.aborted) return
         const data = res?.data
@@ -149,9 +150,20 @@ export function LogStatCards(props: LogStatCardsProps) {
       ? Math.round((tokenBreakdown.cache / tokenBreakdown.input) * 100)
       : 0
 
+  // Total Tokens 卡片小字完整文案：空间不足时自动换行，title 供悬停查看
+  const tokenBreakdownText = tokenBreakdown
+    ? `${t('Input')} ${formatNumber(tokenBreakdown.input, locale)} / ${t(
+        'Cache'
+      )} ${formatNumber(tokenBreakdown.cache, locale)} | ${t(
+        'Cache Hit Rate'
+      )} ${cacheHitRate}% | ${t('Output')} ${formatNumber(
+        tokenBreakdown.output,
+        locale
+      )}`
+    : ''
+
   const items = statCardsConfig.map((config) => {
     const rawValue = config.getValue(adaptedStats, timeRangeMinutes)
-    const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
     const formatted =
       config.key === 'quota'
         ? {
@@ -161,6 +173,7 @@ export function LogStatCards(props: LogStatCardsProps) {
         : formatStatNumber(rawValue, locale)
 
     return {
+      key: config.key,
       title: config.title,
       value: formatted.displayValue,
       fullValue: formatted.fullValue,
@@ -204,11 +217,11 @@ export function LogStatCards(props: LogStatCardsProps) {
                   {it.value}
                 </div>
                 {it.key === 'tokens' && tokenBreakdown && (
-                  <div className='text-muted-foreground/60 mt-1 hidden truncate text-[11px] leading-4 tabular-nums md:block'>
-                    {t('Input')} {formatNumber(tokenBreakdown.input, locale)} /{' '}
-                    {t('Cache')} {formatNumber(tokenBreakdown.cache, locale)} |{' '}
-                    {t('Cache Hit Rate')} {cacheHitRate}% | {t('Output')}{' '}
-                    {formatNumber(tokenBreakdown.output, locale)}
+                  <div
+                    className='text-muted-foreground/60 mt-1 hidden text-[11px] leading-4 tabular-nums md:block'
+                    title={tokenBreakdownText}
+                  >
+                    {tokenBreakdownText}
                   </div>
                 )}
                 <div className='text-muted-foreground/60 mt-1 hidden text-xs md:block'>

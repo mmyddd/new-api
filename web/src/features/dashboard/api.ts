@@ -62,15 +62,20 @@ export interface LogsStatData {
 }
 
 // Get aggregated log stats (input / cache / output tokens) within a time range.
-export async function getLogsStat(params: {
-  type?: number
-  start_timestamp: number
-  end_timestamp: number
-  username?: string
-  token_name?: string
-}) {
+// Admin users get all users' data by default; other users query their own logs.
+export async function getLogsStat(
+  params: {
+    type?: number
+    start_timestamp: number
+    end_timestamp: number
+    username?: string
+    token_name?: string
+  },
+  isAdmin = false
+) {
+  const endpoint = isAdmin ? '/api/log/stat' : '/api/log/self/stat'
   const res = await api.get<{ success: boolean; data: LogsStatData }>(
-    '/api/log/stat',
+    endpoint,
     { params }
   )
   return res.data
