@@ -231,6 +231,12 @@ func (a *Adaptor) SetupRequestHeader(c *gin.Context, header *http.Header, info *
 			header.Set("Authorization", "Bearer "+info.ApiKey)
 		}
 	}
+	// Custom (type 8) 上游的 Anthropic 兼容端点 (/v1/messages) 按 Anthropic 规范
+	// 只认 x-api-key 头，不认 Authorization；补设 x-api-key 使其通过认证
+	if info.ChannelType == constant.ChannelTypeCustom &&
+		common.Path2EndpointType(info.RequestURLPath) == constant.EndpointTypeAnthropic {
+		header.Set("x-api-key", info.ApiKey)
+	}
 	if info.ChannelType == constant.ChannelTypeOpenRouter {
 		if header.Get("HTTP-Referer") == "" {
 			header.Set("HTTP-Referer", "https://www.newapi.ai")
