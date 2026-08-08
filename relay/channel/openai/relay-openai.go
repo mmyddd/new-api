@@ -23,8 +23,37 @@ import (
 
 // claudePassthroughUsage 透传时从 Anthropic SSE / message 中提取的计费用量
 type claudePassthroughUsage struct {
-	PromptTokens  int `json:"input_tokens"`
-	OutputTokens  int `json:"output_tokens"`
+	InputTokens                 int `json:"input_tokens"`
+	CacheCreationInputTokens    int `json:"cache_creation_input_tokens"`
+	CacheReadInputTokens        int `json:"cache_read_input_tokens"`
+	OutputTokens                int `json:"output_tokens"`
+	ClaudeCacheCreation5mTokens int `json:"claude_cache_creation_5_m_tokens"`
+	ClaudeCacheCreation1hTokens int `json:"claude_cache_creation_1_h_tokens"`
+}
+
+// applyClaudePassthroughUsage 将 Anthropic 用量映射到通用 Usage（含缓存计费字段），
+// 供透传路径结算使用。
+func applyClaudePassthroughUsage(usage *dto.Usage, u *claudePassthroughUsage) {
+	if u == nil {
+		return
+	}
+	usage.PromptTokens = u.InputTokens
+	usage.CompletionTokens = u.OutputTokens
+	usage.TotalTokens = u.InputTokens + u.OutputTokens
+	usage.PromptTokensDetails = dto.InputTokenDetails{
+		CachedTokens:         u.CacheReadInputTokens,
+		CachedCreationTokens: u.CacheCreationInputTokens,
+	}
+	usage.ClaudeCacheCreation5mTokens = u.ClaudeCacheCreation5mTokens
+	usage.ClaudeCacheCreation1hTokens = u.ClaudeCacheCreation1hTokens
+	usage.BillingUsage = dto.NewClaudeMessagesBillingUsage(&dto.ClaudeUsage{
+		InputTokens:                 u.InputTokens,
+		CacheCreationInputTokens:    u.CacheCreationInputTokens,
+		CacheReadInputTokens:        u.CacheReadInputTokens,
+		OutputTokens:                u.OutputTokens,
+		ClaudeCacheCreation5mTokens: u.ClaudeCacheCreation5mTokens,
+		ClaudeCacheCreation1hTokens: u.ClaudeCacheCreation1hTokens,
+	})
 }
 
 func sendStreamData(c *gin.Context, info *relaycommon.RelayInfo, data string, forceFormat bool, thinkToContent bool) error {
@@ -127,9 +156,7 @@ func OaiClaudeStreamPassthroughHandler(c *gin.Context, info *relaycommon.RelayIn
 		}
 		if streamResp.Type == "message_delta" && streamResp.Usage != nil {
 			usageLock.Lock()
-			usage.PromptTokens = streamResp.Usage.PromptTokens
-			usage.CompletionTokens = streamResp.Usage.OutputTokens
-			usage.TotalTokens = streamResp.Usage.PromptTokens + streamResp.Usage.OutputTokens
+			applyClaudePassthroughUsage(usage, streamResp.Usage)
 			usageLock.Unlock()
 		}
 		if err := helper.StringData(c, data); err != nil {
@@ -166,9 +193,7 @@ func OaiClaudePassthroughHandler(c *gin.Context, info *relaycommon.RelayInfo, re
 		Usage *claudePassthroughUsage `json:"usage"`
 	}
 	if err := common.Unmarshal(responseBody, &bodyResp); err == nil && bodyResp.Usage != nil {
-		usage.PromptTokens = bodyResp.Usage.PromptTokens
-		usage.CompletionTokens = bodyResp.Usage.OutputTokens
-		usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
+		applyClaudePassthroughUsage(usage, bodyResp.Usage)
 	} else {
 		usage = service.ResponseText2Usage(c, "", info.UpstreamModelName, info.GetEstimatePromptTokens())
 	}
