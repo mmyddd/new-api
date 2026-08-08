@@ -202,6 +202,7 @@ export const channelFormSchema = z
     openai_organization: z.string().optional(),
     models: z.string().min(1, ERROR_MESSAGES.REQUIRED_MODELS),
     group: z.array(z.string()).min(1, ERROR_MESSAGES.REQUIRED_GROUP),
+    endpoint_type: z.array(z.string()).optional(),
     model_mapping: z
       .string()
       .optional()
@@ -406,6 +407,7 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
   openai_organization: '',
   models: '',
   group: ['default'],
+  endpoint_type: [],
   model_mapping: '',
   priority: 0,
   weight: 0,
@@ -558,6 +560,7 @@ export function transformChannelToFormDefaults(
     openai_organization: channel.openai_organization || '',
     models: channel.models || '',
     group: parseGroups(channel.group || 'default'),
+    endpoint_type: parseGroups(channel.endpoint_type || ''),
     model_mapping: channel.model_mapping || '',
     priority: channel.priority || 0,
     weight: channel.weight || 0,
@@ -784,6 +787,7 @@ export function transformFormDataToCreatePayload(formData: ChannelFormValues): {
     openai_organization: formData.openai_organization || null,
     models: formData.models,
     group: formatGroups(formData.group),
+    endpoint_type: formatGroups(formData.endpoint_type) || null,
     model_mapping: formData.model_mapping || null,
     priority: formData.priority || null,
     weight: formData.weight || null,
@@ -832,6 +836,7 @@ export function transformFormDataToUpdatePayload(
     openai_organization: formData.openai_organization || null,
     models: formData.models,
     group: formatGroups(formData.group),
+    endpoint_type: formatGroups(formData.endpoint_type),
     model_mapping: formData.model_mapping || null,
     priority: formData.priority ?? 0,
     weight: formData.weight ?? 0,
@@ -869,6 +874,7 @@ export function transformFormDataToUpdatePayload(
   payload.status_code_mapping = formData.status_code_mapping || ''
   payload.param_override = formData.param_override || ''
   payload.header_override = formData.header_override || ''
+  payload.endpoint_type = formatGroups(formData.endpoint_type) || ''
 
   return payload
 }

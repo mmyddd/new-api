@@ -18,3 +18,17 @@ const (
 	EndpointTypeEmbeddings            = types.EndpointTypeEmbeddings
 	EndpointTypeOpenAIVideo           = types.EndpointTypeOpenAIVideo
 )
+
+// AllEndpointTypes 列出全部已知端点类型，用于渠道保存时校验声明的端点类型。
+var AllEndpointTypes = []EndpointType{
+	EndpointTypeOpenAI,
+	EndpointTypeOpenAIResponse,
+	EndpointTypeOpenAIResponseCompact,
+	EndpointTypeOpenAIAlphaSearch,
+	EndpointTypeAnthropic,
+	EndpointTypeGemini,
+	EndpointTypeJinaRerank,
+	EndpointTypeImageGeneration,
+	EndpointTypeEmbeddings,
+	EndpointTypeOpenAIVideo,
+}

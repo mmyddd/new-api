@@ -108,6 +108,10 @@ func GetModelSupportEndpointTypes(model string) []constant.EndpointType {
 }
 
 func getPricingEndpointTypesForAbility(ability AbilityWithChannel, advancedCustomConfigs map[int]*dto.AdvancedCustomConfig) []constant.EndpointType {
+	// 渠道显式声明端点类型时，以声明列表为准（与选路行为一致）
+	if ability.ChannelEndpointType != "" {
+		return parseChannelEndpointTypes(ability.ChannelEndpointType)
+	}
 	if ability.ChannelType != constant.ChannelTypeAdvancedCustom {
 		return common.GetEndpointTypesByChannelType(ability.ChannelType, ability.Model)
 	}

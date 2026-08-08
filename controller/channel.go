@@ -535,6 +535,26 @@ func validateChannel(channel *model.Channel, isAdd bool) error {
 		}
 	}
 
+	// 校验渠道声明的端点类型，值必须是已知的端点类型，否则永远不会匹配请求
+	if channel.EndpointType != nil && strings.TrimSpace(*channel.EndpointType) != "" {
+		for _, et := range strings.Split(*channel.EndpointType, ",") {
+			et = strings.TrimSpace(et)
+			if et == "" {
+				continue
+			}
+			known := false
+			for _, t := range constant.AllEndpointTypes {
+				if string(t) == et {
+					known = true
+					break
+				}
+			}
+			if !known {
+				return fmt.Errorf("未知的端点类型: %s", et)
+			}
+		}
+	}
+
 	return nil
 }
 

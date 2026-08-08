@@ -23,6 +23,22 @@ For commercial licensing, please contact support@quantumnous.com
 
 export const CHANNEL_TYPE_NEW_API = 60
 
+// Channel endpoint types (values match backend constant.EndpointType).
+// Labels are intentionally kept as English technical terms and are NOT
+// translated (endpoint types are protocol identifiers, like model names).
+export const CHANNEL_ENDPOINT_TYPE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'openai', label: 'Chat' },
+  { value: 'openai-response', label: 'Response' },
+  { value: 'openai-response-compact', label: 'Response (Compact)' },
+  { value: 'openai-alpha-search', label: 'Alpha Search' },
+  { value: 'anthropic', label: 'Anthropic' },
+  { value: 'gemini', label: 'Gemini' },
+  { value: 'jina-rerank', label: 'Rerank' },
+  { value: 'image-generation', label: 'Image' },
+  { value: 'embeddings', label: 'Embeddings' },
+  { value: 'openai-video', label: 'Video' },
+]
+
 export const CHANNEL_TYPES = {
   0: 'Unknown',
   1: 'OpenAI',

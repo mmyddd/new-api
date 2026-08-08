@@ -138,6 +138,7 @@ import {
 } from '../../api'
 import {
   ADD_MODE_OPTIONS,
+  CHANNEL_ENDPOINT_TYPE_OPTIONS,
   CHANNEL_STATUS_LABELS,
   CHANNEL_TYPE_OPTIONS,
   CHANNEL_TYPE_WARNINGS,
@@ -943,6 +944,16 @@ export function ChannelMutateDrawer({
     return options
   }, [currentType, t])
 
+  // Endpoint type labels are intentional English technical terms, not i18n keys
+  const endpointTypeOptions = useMemo(
+    () =>
+      CHANNEL_ENDPOINT_TYPE_OPTIONS.map((option) => ({
+        value: option.value,
+        label: option.label,
+      })),
+    []
+  )
+
   const formErrors = form.formState.errors
   const identityHasErrors = Boolean(
     formErrors.name ||
@@ -1306,23 +1317,40 @@ export function ChannelMutateDrawer({
     }
   }, [form, isEditing, multiKeyMode, supportsMultiKeyAddMode])
 
-  // Validate base_url - warn if it ends with /v1
+  // Normalize base_url: when the entered URL already contains an endpoint path
+  // (/chat/completions or /responses), strip it, force a /v1 ending and record the
+  // corresponding endpoint type on the channel. The relay appends endpoint paths
+  // to a /v1-ending base URL automatically, so a full URL is treated as a base URL.
   useEffect(() => {
-    if (!currentBaseUrl || !currentBaseUrl.endsWith('/v1')) return
-
-    // Show warning toast
-    const timer = setTimeout(() => {
-      toast.warning(
-        t(
-          'Warning: Base URL should not end with /v1. New API will handle it automatically. This may cause request failures.'
-        ),
-        { duration: 5000 }
-      )
-    }, 500)
-
-    return () => clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentBaseUrl])
+    if (!currentBaseUrl) return
+    const base = currentBaseUrl.replace(/\/+$/, '')
+    let normalized: string | null = null
+    let endpointType: string | null = null
+    if (base.endsWith('/chat/completions')) {
+      normalized = base.slice(0, -'/chat/completions'.length)
+      endpointType = 'openai'
+    } else if (base.endsWith('/responses/compact')) {
+      normalized = base.slice(0, -'/responses/compact'.length)
+      endpointType = 'openai-response-compact'
+    } else if (base.endsWith('/responses')) {
+      normalized = base.slice(0, -'/responses'.length)
+      endpointType = 'openai-response'
+    }
+    if (normalized === null) return
+    if (!normalized.endsWith('/v1')) normalized = `${normalized}/v1`
+    form.setValue('base_url', normalized, {
+      shouldDirty: true,
+      shouldValidate: true,
+    })
+    if (endpointType) {
+      const current = form.getValues('endpoint_type') ?? []
+      if (!current.includes(endpointType)) {
+        form.setValue('endpoint_type', [...current, endpointType], {
+          shouldDirty: true,
+        })
+      }
+    }
+  }, [currentBaseUrl, form])
 
   // Handle key deduplication
   const handleDeduplicateKeys = () => {
@@ -2215,7 +2243,7 @@ export function ChannelMutateDrawer({
                                 render={({ field }) => (
                                   <FormItem>
                                     <FormLabel>
-                                      {t('Full Base URL (supports')} {'{'}
+                                      {t('Base URL (supports')} {'{'}
                                       {t('model')}
                                       {'}'} {t('variable) *')}
                                     </FormLabel>
@@ -2228,7 +2256,7 @@ export function ChannelMutateDrawer({
                                       />
                                     </FormControl>
                                     <FormDescription>
-                                      {t('Enter the complete URL, supports')}{' '}
+                                      {t('Enter the base URL, supports')}{' '}
                                       {'{'}
                                       {t('model')}
                                       {'}'} {t('variable')}
@@ -3317,6 +3345,33 @@ export function ChannelMutateDrawer({
                                       </AlertDescription>
                                     </Alert>
                                   )}
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={form.control}
+                              name='endpoint_type'
+                              render={({ field }) => (
+                                <FormItem className='mt-4 space-y-3'>
+                                  <div className='space-y-1'>
+                                    <FormLabel>{t('Endpoint Type')}</FormLabel>
+                                    <FormDescription>
+                                      {t(
+                                        'Leave empty to support all endpoint types'
+                                      )}
+                                    </FormDescription>
+                                  </div>
+                                  <FormControl>
+                                    <MultiSelect
+                                      options={endpointTypeOptions}
+                                      selected={field.value ?? []}
+                                      onChange={field.onChange}
+                                      placeholder={t('Select endpoint types')}
+                                      maxVisibleChips={8}
+                                    />
+                                  </FormControl>
                                   <FormMessage />
                                 </FormItem>
                               )}

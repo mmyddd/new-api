@@ -27,13 +27,14 @@ type Ability struct {
 
 type AbilityWithChannel struct {
 	Ability
-	ChannelType int `json:"channel_type"`
+	ChannelType         int    `json:"channel_type"`
+	ChannelEndpointType string `json:"channel_endpoint_type"`
 }
 
 func GetAllEnableAbilityWithChannels() ([]AbilityWithChannel, error) {
 	var abilities []AbilityWithChannel
 	err := DB.Table("abilities").
-		Select("abilities.*, channels.type as channel_type").
+		Select("abilities.*, channels.type as channel_type, channels.endpoint_type as channel_endpoint_type").
 		Joins("left join channels on abilities.channel_id = channels.id").
 		Where("abilities.enabled = ?", true).
 		Scan(&abilities).Error
@@ -150,11 +151,14 @@ func GetChannel(group string, model string, retry int, requestPath string) (*Cha
 // model for the DB (non-memory-cache) selection path. Only Advanced Custom
 // (type 58) channels are path-checked: kept only when one of their routes matches
 // requestPath and model; all other channel types always pass. When requestPath is
-// empty, filtering is skipped.
+// empty, filtering is skipped. Channels that explicitly declare endpoint types
+// are kept only when the declared list contains the endpoint type derived from
+// requestPath.
 func filterAbilitiesByRequestPathAndModel(abilities []Ability, requestPath string, model string) []Ability {
 	if requestPath == "" || len(abilities) == 0 {
 		return abilities
 	}
+	endpointType := common.Path2EndpointType(requestPath)
 
 	channelIds := make([]int, 0, len(abilities))
 	seen := make(map[int]struct{}, len(abilities))
@@ -172,8 +176,10 @@ func filterAbilitiesByRequestPathAndModel(abilities []Ability, requestPath strin
 		return abilities
 	}
 
+	channelsByID := make(map[int]*Channel, len(channels))
 	advancedConfigs := make(map[int]*dto.AdvancedCustomConfig)
 	for _, channel := range channels {
+		channelsByID[channel.Id] = channel
 		if channel.Type == constant.ChannelTypeAdvancedCustom {
 			advancedConfigs[channel.Id] = channel.GetOtherSettings().AdvancedCustom
 		}
@@ -181,14 +187,17 @@ func filterAbilitiesByRequestPathAndModel(abilities []Ability, requestPath strin
 
 	filtered := make([]Ability, 0, len(abilities))
 	for _, ability := range abilities {
-		config, isAdvancedCustom := advancedConfigs[ability.ChannelId]
-		if !isAdvancedCustom {
-			filtered = append(filtered, ability)
+		channel, ok := channelsByID[ability.ChannelId]
+		if ok && channel.Type == constant.ChannelTypeAdvancedCustom {
+			config := advancedConfigs[ability.ChannelId]
+			if config == nil || !config.SupportsPathForModel(requestPath, model) {
+				continue
+			}
+		}
+		if ok && endpointType != "" && !channel.SupportsEndpointType(endpointType) {
 			continue
 		}
-		if config != nil && config.SupportsPathForModel(requestPath, model) {
-			filtered = append(filtered, ability)
-		}
+		filtered = append(filtered, ability)
 	}
 	return filtered
 }

@@ -37,6 +37,8 @@ type Channel struct {
 	Balance            float64 `json:"balance"` // in USD
 	BalanceUpdatedTime int64   `json:"balance_updated_time" gorm:"bigint"`
 	Models             string  `json:"models"`
+	// EndpointType 渠道声明的端点类型（逗号分隔，如 openai,anthropic），留空表示支持所有端点
+	EndpointType       *string `json:"endpoint_type" gorm:"type:varchar(1024)"`
 	Group              string  `json:"group" gorm:"type:varchar(64);default:'default'"`
 	UsedQuota          int64   `json:"used_quota" gorm:"bigint;default:0"`
 	ModelMapping       *string `json:"model_mapping" gorm:"type:text"`
@@ -502,7 +504,35 @@ func (channel *Channel) GetBaseURL() string {
 	if url == "" {
 		url = constant.ChannelBaseURLs[channel.Type]
 	}
-	return url
+	// 去除末尾 /v1，避免与上游请求路径（/v1/chat/completions 等）拼接时产生 /v1/v1 重复
+	return common.NormalizeBaseURL(url)
+}
+
+// SupportsEndpointType 报告渠道是否支持指定端点类型。
+// 渠道未声明端点类型（nil 或空串）时视为支持所有端点。
+func (channel *Channel) SupportsEndpointType(et constant.EndpointType) bool {
+	if channel == nil || channel.EndpointType == nil || strings.TrimSpace(*channel.EndpointType) == "" {
+		return true
+	}
+	for _, t := range strings.Split(*channel.EndpointType, ",") {
+		if strings.TrimSpace(t) == string(et) {
+			return true
+		}
+	}
+	return false
+}
+
+// parseChannelEndpointTypes 将渠道端点类型字符串解析为端点类型切片。
+func parseChannelEndpointTypes(s string) []constant.EndpointType {
+	var endpointTypes []constant.EndpointType
+	for _, t := range strings.Split(s, ",") {
+		t = strings.TrimSpace(t)
+		if t == "" {
+			continue
+		}
+		endpointTypes = append(endpointTypes, constant.EndpointType(t))
+	}
+	return endpointTypes
 }
 
 func (channel *Channel) GetModelMapping() string {
