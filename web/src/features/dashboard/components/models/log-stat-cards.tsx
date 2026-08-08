@@ -21,7 +21,7 @@ import { useTranslation } from 'react-i18next'
 
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { getUserQuotaDates } from '@/features/dashboard/api'
+import { getLogsStat, getUserQuotaDates } from '@/features/dashboard/api'
 import { useModelStatCardsConfig } from '@/features/dashboard/hooks/use-dashboard-config'
 import {
   buildQueryParams,
@@ -59,7 +59,7 @@ function formatStatNumber(value: number, locale: Intl.LocalesArgument) {
 }
 
 export function LogStatCards(props: LogStatCardsProps) {
-  const { i18n } = useTranslation()
+  const { i18n, t } = useTranslation()
   const statCardsConfig = useModelStatCardsConfig()
   const user = useAuthStore((state) => state.auth.user)
   const isAdmin = !!(user?.role && user.role >= 10)
@@ -67,6 +67,11 @@ export function LogStatCards(props: LogStatCardsProps) {
     totalQuota: number
     totalCount: number
     totalTokens: number
+  } | null>(null)
+  const [tokenBreakdown, setTokenBreakdown] = useState<{
+    input: number
+    cache: number
+    output: number
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -110,6 +115,23 @@ export function LogStatCards(props: LogStatCardsProps) {
         }
       })
 
+    // 拉取时间范围内的 token 构成（输入/缓存/输出），用于 Total Tokens 卡片小字
+    void getLogsStat(buildQueryParams(timeRange, filters))
+      .then((res) => {
+        if (abortController.signal.aborted) return
+        const data = res?.data
+        setTokenBreakdown({
+          input: Number(data?.input_tokens) || 0,
+          cache: Number(data?.cache_tokens) || 0,
+          output: Number(data?.output_tokens) || 0,
+        })
+      })
+      .catch(() => {
+        if (!abortController.signal.aborted) {
+          setTokenBreakdown(null)
+        }
+      })
+
     return () => {
       abortController.abort()
     }
@@ -120,6 +142,12 @@ export function LogStatCards(props: LogStatCardsProps) {
     quota: stats?.totalQuota ?? 0,
     tpm: stats?.totalTokens ?? 0,
   }
+
+  // 缓存命中率 = 缓存读取 / 总输入
+  const cacheHitRate =
+    tokenBreakdown && tokenBreakdown.input > 0
+      ? Math.round((tokenBreakdown.cache / tokenBreakdown.input) * 100)
+      : 0
 
   const items = statCardsConfig.map((config) => {
     const rawValue = config.getValue(adaptedStats, timeRangeMinutes)
@@ -175,6 +203,14 @@ export function LogStatCards(props: LogStatCardsProps) {
                 >
                   {it.value}
                 </div>
+                {it.key === 'tokens' && tokenBreakdown && (
+                  <div className='text-muted-foreground/60 mt-1 hidden truncate text-[11px] leading-4 tabular-nums md:block'>
+                    {t('Input')} {formatNumber(tokenBreakdown.input, locale)} /{' '}
+                    {t('Cache')} {formatNumber(tokenBreakdown.cache, locale)} |{' '}
+                    {t('Cache Hit Rate')} {cacheHitRate}% | {t('Output')}{' '}
+                    {formatNumber(tokenBreakdown.output, locale)}
+                  </div>
+                )}
                 <div className='text-muted-foreground/60 mt-1 hidden text-xs md:block'>
                   {it.desc}
                 </div>

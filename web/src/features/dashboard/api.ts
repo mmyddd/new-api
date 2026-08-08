@@ -52,6 +52,30 @@ export async function getUserQuotaDates(
   return res.data
 }
 
+export interface LogsStatData {
+  quota: number
+  rpm: number
+  tpm: number
+  input_tokens: number
+  cache_tokens: number
+  output_tokens: number
+}
+
+// Get aggregated log stats (input / cache / output tokens) within a time range.
+export async function getLogsStat(params: {
+  type?: number
+  start_timestamp: number
+  end_timestamp: number
+  username?: string
+  token_name?: string
+}) {
+  const res = await api.get<{ success: boolean; data: LogsStatData }>(
+    '/api/log/stat',
+    { params }
+  )
+  return res.data
+}
+
 // ----------------------------------------------------------------------------
 // System Monitoring
 // ----------------------------------------------------------------------------

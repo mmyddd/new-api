@@ -613,10 +613,34 @@ type Stat struct {
 	Quota int `json:"quota"`
 	Rpm   int `json:"rpm"`
 	Tpm   int `json:"tpm"`
+	// 时间范围内的 token 构成（输入/缓存读取/输出），供数据看板展示
+	InputTokens  int `json:"input_tokens"`
+	CacheTokens  int `json:"cache_tokens"`
+	OutputTokens int `json:"output_tokens"`
+}
+
+// logCacheTokensSumExpr 返回从 logs.other JSON 中提取缓存读取 token 的聚合表达式，
+// 按日志库方言区分。
+func logCacheTokensSumExpr() string {
+	switch {
+	case common.UsingLogDatabase(common.DatabaseTypePostgreSQL):
+		return "COALESCE((other::json ->> 'cache_tokens')::int, 0)"
+	case common.UsingLogDatabase(common.DatabaseTypeMySQL):
+		return "COALESCE(JSON_EXTRACT(other, '$.cache_tokens'), 0)"
+	case common.UsingLogDatabase(common.DatabaseTypeClickHouse):
+		return "JSONExtractInt(other, 'cache_tokens')"
+	default: // SQLite
+		return "COALESCE(json_extract(other, '$.cache_tokens'), 0)"
+	}
 }
 
 func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, channel int, group string) (stat Stat, err error) {
-	tx := LOG_DB.Table("logs").Select("COALESCE(sum(quota), 0) quota")
+	cacheSumExpr := logCacheTokensSumExpr()
+	tx := LOG_DB.Table("logs").Select(
+		"COALESCE(sum(quota), 0) quota, " +
+			"COALESCE(sum(prompt_tokens), 0) input_tokens, " +
+			"COALESCE(sum(completion_tokens), 0) output_tokens, " +
+			"COALESCE(sum(" + cacheSumExpr + "), 0) cache_tokens")
 
 	// 为rpm和tpm创建单独的查询
 	rpmTpmQuery := LOG_DB.Table("logs").Select("count(*) rpm, COALESCE(sum(prompt_tokens), 0) + COALESCE(sum(completion_tokens), 0) tpm")
