@@ -663,7 +663,16 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 	case relayconstant.RelayModeResponsesCompact:
 		usage, err = OaiResponsesCompactionHandler(c, resp)
 	default:
-		if info.IsStream {
+		// Custom (type 8) 渠道 anthropic 端点：上游按 Anthropic 规范响应，
+		// 流式/非流式均原样透传，避免 OpenAI 格式转换丢弃内容
+		if info.ChannelType == constant.ChannelTypeCustom &&
+			common.Path2EndpointType(info.RequestURLPath) == constant.EndpointTypeAnthropic {
+			if info.IsStream {
+				usage, err = OaiClaudeStreamPassthroughHandler(c, info, resp)
+			} else {
+				usage, err = OaiClaudePassthroughHandler(c, info, resp)
+			}
+		} else if info.IsStream {
 			usage, err = OaiStreamHandler(c, info, resp)
 		} else {
 			usage, err = OpenaiHandler(c, info, resp)

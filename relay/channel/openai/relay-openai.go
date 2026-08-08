@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -19,6 +20,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+// claudePassthroughUsage 透传时从 Anthropic SSE / message 中提取的计费用量
+type claudePassthroughUsage struct {
+	PromptTokens  int `json:"input_tokens"`
+	OutputTokens  int `json:"output_tokens"`
+}
 
 func sendStreamData(c *gin.Context, info *relaycommon.RelayInfo, data string, forceFormat bool, thinkToContent bool) error {
 	if data == "" {
@@ -99,6 +106,73 @@ func sendStreamData(c *gin.Context, info *relaycommon.RelayInfo, data string, fo
 	}
 
 	return helper.ObjectData(c, lastStreamResponse)
+}
+
+// OaiClaudeStreamPassthroughHandler 原样转发上游 Anthropic SSE 流（Custom 渠道
+// anthropic 端点专用）。跳过 OpenAI 流格式解析/转换，保证 content_block_delta
+// 等 Anthropic 事件完整回传；同时从 message_delta 中提取计费用量。
+func OaiClaudeStreamPassthroughHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
+	defer service.CloseResponseBodyGracefully(resp)
+
+	usage := &dto.Usage{}
+	var usageLock sync.Mutex
+
+	helper.StreamScannerHandler(c, resp, info, func(data string, sr *helper.StreamResult) {
+		var streamResp struct {
+			Type  string               `json:"type"`
+			Usage *claudePassthroughUsage `json:"usage"`
+		}
+		if err := common.UnmarshalJsonStr(data, &streamResp); err != nil {
+			return
+		}
+		if streamResp.Type == "message_delta" && streamResp.Usage != nil {
+			usageLock.Lock()
+			usage.PromptTokens = streamResp.Usage.PromptTokens
+			usage.CompletionTokens = streamResp.Usage.OutputTokens
+			usage.TotalTokens = streamResp.Usage.PromptTokens + streamResp.Usage.OutputTokens
+			usageLock.Unlock()
+		}
+		if err := helper.StringData(c, data); err != nil {
+			sr.Error(err)
+		}
+	})
+
+	// 上游未带 usage 时按文本估算，保证计费
+	if usage.TotalTokens == 0 {
+		usage = service.ResponseText2Usage(c, "", info.UpstreamModelName, info.GetEstimatePromptTokens())
+	}
+	return usage, nil
+}
+
+// OaiClaudePassthroughHandler 原样转发上游非流式 Anthropic 响应（Custom 渠道
+// anthropic 端点专用），保持 Anthropic 响应格式。
+func OaiClaudePassthroughHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
+	defer service.CloseResponseBodyGracefully(resp)
+
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, types.NewOpenAIError(err, types.ErrorCodeReadResponseBodyFailed, http.StatusInternalServerError)
+	}
+	// 透传响应体
+	c.Writer.Header().Set("Content-Type", "application/json")
+	c.Writer.WriteHeader(http.StatusOK)
+	if _, err := c.Writer.Write(responseBody); err != nil {
+		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusInternalServerError)
+	}
+
+	// 从响应体中提取计费用量
+	usage := &dto.Usage{}
+	var bodyResp struct {
+		Usage *claudePassthroughUsage `json:"usage"`
+	}
+	if err := common.Unmarshal(responseBody, &bodyResp); err == nil && bodyResp.Usage != nil {
+		usage.PromptTokens = bodyResp.Usage.PromptTokens
+		usage.CompletionTokens = bodyResp.Usage.OutputTokens
+		usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
+	} else {
+		usage = service.ResponseText2Usage(c, "", info.UpstreamModelName, info.GetEstimatePromptTokens())
+	}
+	return usage, nil
 }
 
 func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
