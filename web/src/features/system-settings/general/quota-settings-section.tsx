@@ -61,6 +61,7 @@ const quotaSchema = z.object({
   }),
   quota_setting: z.object({
     enable_free_model_pre_consume: z.boolean(),
+    skip_client_gone_billing: z.boolean(),
   }),
 })
 
@@ -248,6 +249,34 @@ export function QuotaSettingsSection({
                       <FormDescription>
                         {t(
                           'When enabled, zero-cost models also pre-consume quota before final settlement.'
+                        )}
+                      </FormDescription>
+                    </SettingsSwitchContent>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        disabled={updateOption.isPending}
+                      />
+                    </FormControl>
+                  </SettingsSwitchItem>
+                )}
+              />
+            </SettingsFormGridItem>
+
+            <SettingsFormGridItem span='full'>
+              <FormField
+                control={form.control}
+                name='quota_setting.skip_client_gone_billing'
+                render={({ field }) => (
+                  <SettingsSwitchItem>
+                    <SettingsSwitchContent>
+                      <FormLabel>
+                        {t('Skip client-gone billing and stats')}
+                      </FormLabel>
+                      <FormDescription>
+                        {t(
+                          'When enabled, streaming requests aborted by the client are not billed or counted in usage stats.'
                         )}
                       </FormDescription>
                     </SettingsSwitchContent>

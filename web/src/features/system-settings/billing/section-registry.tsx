@@ -70,6 +70,8 @@ const BILLING_SECTIONS = [
           quota_setting: {
             enable_free_model_pre_consume:
               settings['quota_setting.enable_free_model_pre_consume'],
+            skip_client_gone_billing:
+              settings['quota_setting.skip_client_gone_billing'],
           },
         }}
         complianceConfirmed={

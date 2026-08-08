@@ -395,6 +395,18 @@ func usageSemanticFromUsage(relayInfo *relaycommon.RelayInfo, usage *dto.Usage) 
 }
 
 func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.Usage, extraContent []string) {
+	// 开启"不统计断流数据"时：流式请求客户端断开（client_gone）不计费、不统计，
+	// 退还预扣费并跳过消费日志
+	if operation_setting.GetQuotaSetting().SkipClientGoneBilling &&
+		relayInfo != nil && relayInfo.StreamStatus != nil &&
+		relayInfo.StreamStatus.EndReason == relaycommon.StreamEndReasonClientGone {
+		logger.LogInfo(ctx, "client gone, skip billing and stats for request")
+		if relayInfo.Billing != nil {
+			relayInfo.Billing.Refund(ctx)
+		}
+		return
+	}
+
 	originUsage := usage
 	billingUsage := effectiveBillingUsage(usage)
 	if usage == nil {
