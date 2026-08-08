@@ -32,7 +32,8 @@ type claudePassthroughUsage struct {
 }
 
 // applyClaudePassthroughUsage 将 Anthropic 用量映射到通用 Usage（含缓存计费字段），
-// 供透传路径结算使用。
+// 供透传路径结算使用。Anthropic 语义下 PromptTokens 为 fresh（计费基数），
+// 缓存读取/写入独立并列，总输入记录在 InputTokens。
 func applyClaudePassthroughUsage(usage *dto.Usage, u *claudePassthroughUsage) {
 	if u == nil {
 		return
@@ -40,6 +41,7 @@ func applyClaudePassthroughUsage(usage *dto.Usage, u *claudePassthroughUsage) {
 	usage.PromptTokens = u.InputTokens
 	usage.CompletionTokens = u.OutputTokens
 	usage.TotalTokens = u.InputTokens + u.OutputTokens
+	usage.InputTokens = u.InputTokens + u.CacheReadInputTokens + u.CacheCreationInputTokens
 	usage.PromptTokensDetails = dto.InputTokenDetails{
 		CachedTokens:         u.CacheReadInputTokens,
 		CachedCreationTokens: u.CacheCreationInputTokens,

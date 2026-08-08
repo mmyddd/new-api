@@ -130,6 +130,9 @@ func usageFromClaudeBillingUsage(billingUsage *dto.BillingUsage) *dto.Usage {
 		cacheCreation1h = claudeUsage.ClaudeCacheCreation1hTokens
 	}
 
+	// Anthropic 语义下 InputTokens 只含非缓存（fresh）输入，缓存读取/写入独立并列。
+	// PromptTokens 保持 fresh（Claude 计费以它为基数），InputTokens 记录总输入，
+	// 供日志与统计展示
 	usage := &dto.Usage{
 		PromptTokens:                claudeUsage.InputTokens,
 		CompletionTokens:            claudeUsage.OutputTokens,

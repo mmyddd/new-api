@@ -535,9 +535,17 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 
 	attachQuotaSaturation(ctx, relayInfo, other)
 
+	// 记录总输入（含缓存），缓存数量在 other.cache_tokens 中单独记录。
+	// Claude 语义下 summary.PromptTokens 为 fresh（计费基数），总输入取
+	// billingUsage.InputTokens；其他语义 PromptTokens 本身即总输入。
+	promptTokensForLog := summary.PromptTokens
+	if billingUsage != nil && billingUsage.InputTokens > 0 {
+		promptTokensForLog = billingUsage.InputTokens
+	}
+
 	model.RecordConsumeLog(ctx, relayInfo.UserId, model.RecordConsumeLogParams{
 		ChannelId:        relayInfo.ChannelId,
-		PromptTokens:     summary.PromptTokens,
+		PromptTokens:     promptTokensForLog,
 		CompletionTokens: summary.CompletionTokens,
 		ModelName:        logModel,
 		TokenName:        summary.TokenName,

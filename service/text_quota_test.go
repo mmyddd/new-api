@@ -195,6 +195,7 @@ func TestCalculateTextQuotaSummaryUsesClaudeBillingUsageBeforeTopLevelUsage(t *t
 
 	require.True(t, summary.IsClaudeUsageSemantic)
 	require.Equal(t, dto.BillingUsageSemanticAnthropic, summary.UsageSemantic)
+	// PromptTokens 保持 fresh（Claude 计费基数），总输入由 InputTokens 承载
 	require.Equal(t, 70, summary.PromptTokens)
 	require.Equal(t, 7, summary.CompletionTokens)
 	require.Equal(t, 30, summary.CacheTokens)

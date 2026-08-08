@@ -213,21 +213,10 @@ function MobileTokensField({ log }: { log: UsageLog }) {
     ? cacheWrite5m + cacheWrite1h
     : other?.cache_creation_tokens || 0
   const showCache = cacheReadTokens > 0 || cacheWriteTokens > 0
-  // 缓存命中率 = 缓存读取 / 总输入
-  const totalInput = log.prompt_tokens || 0
-  const cacheHitRate =
-    totalInput > 0 ? Math.round((cacheReadTokens / totalInput) * 100) : 0
 
   return (
     <div className='bg-muted/20 min-w-0 rounded-md px-2 py-1.5'>
       <div className='flex flex-col gap-0.5'>
-        {showCache && (
-          <span className='text-muted-foreground/50 text-[10px] leading-none tabular-nums'>
-            {t('Input')} {totalInput.toLocaleString()} / {t('Cache')}{' '}
-            {cacheReadTokens.toLocaleString()} | {t('Cache Hit Rate')}{' '}
-            {cacheHitRate}%
-          </span>
-        )}
         <span className='font-mono text-xs font-medium tabular-nums'>
           {promptTokens.toLocaleString()} / {completionTokens.toLocaleString()}
         </span>
