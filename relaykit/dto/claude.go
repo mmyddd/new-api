@@ -482,6 +482,30 @@ func (c *ClaudeRequest) ParseSystem() []ClaudeMediaMessage {
 	return mediaContent
 }
 
+// IsEmptySystem reports whether the system field is absent or carries no
+// meaningful content (empty/whitespace-only string or blocks without any
+// non-empty text).
+func (c *ClaudeRequest) IsEmptySystem() bool {
+	if c.System == nil {
+		return true
+	}
+	if s, ok := c.System.(string); ok {
+		return strings.TrimSpace(s) == ""
+	}
+	systemContents := c.ParseSystem()
+	for _, block := range systemContents {
+		if block.Type == "" || block.Type == "text" {
+			if block.Text != nil && strings.TrimSpace(*block.Text) != "" {
+				return false
+			}
+			continue
+		}
+		// 非文本块（如图片）视为有效内容
+		return false
+	}
+	return true
+}
+
 type ClaudeErrorWithStatusCode struct {
 	Error      types.ClaudeError `json:"error"`
 	StatusCode int               `json:"status_code"`

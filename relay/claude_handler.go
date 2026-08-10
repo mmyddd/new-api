@@ -108,7 +108,7 @@ func ClaudeHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
 	}
 
 	if info.ChannelSetting.SystemPrompt != "" {
-		if request.System == nil {
+		if request.System == nil || request.IsEmptySystem() {
 			request.SetStringSystem(info.ChannelSetting.SystemPrompt)
 		} else if info.ChannelSetting.SystemPromptOverride {
 			common.SetContextKey(c, constant.ContextKeySystemPromptOverride, true)

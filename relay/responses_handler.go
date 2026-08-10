@@ -1,12 +1,14 @@
 package relay
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/logger"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
@@ -69,6 +71,10 @@ func ResponsesHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *
 	err = helper.ModelMappedHelper(c, info, request)
 	if err != nil {
 		return types.NewError(err, types.ErrorCodeChannelModelMappedError, types.ErrOptionWithSkipRetry())
+	}
+
+	if !model_setting.GetGlobalSettings().PassThroughRequestEnabled && !info.ChannelSetting.PassThroughBodyEnabled {
+		applySystemPromptToResponses(c, info, request)
 	}
 
 	adaptor := GetAdaptor(info.ApiType)
@@ -168,4 +174,58 @@ func ResponsesHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *
 		service.PostTextConsumeQuota(c, info, usageDto, nil)
 	}
 	return nil
+}
+
+func applySystemPromptToResponses(c *gin.Context, info *relaycommon.RelayInfo, request *dto.OpenAIResponsesRequest) {
+	if info == nil || request == nil {
+		return
+	}
+	if info.ChannelSetting.SystemPrompt == "" {
+		return
+	}
+
+	promptInstructions, err := common.Marshal(info.ChannelSetting.SystemPrompt)
+	if err != nil {
+		return
+	}
+
+	if isEmptyResponsesInstructions(request.Instructions) {
+		request.Instructions = promptInstructions
+		return
+	}
+	if !info.ChannelSetting.SystemPromptOverride {
+		return
+	}
+
+	common.SetContextKey(c, constant.ContextKeySystemPromptOverride, true)
+	var existing string
+	if err := common.Unmarshal(request.Instructions, &existing); err != nil {
+		request.Instructions = promptInstructions
+		return
+	}
+	existing = strings.TrimSpace(existing)
+	if existing == "" {
+		request.Instructions = promptInstructions
+		return
+	}
+	prepended, err := common.Marshal(info.ChannelSetting.SystemPrompt + "\n" + existing)
+	if err != nil {
+		return
+	}
+	request.Instructions = prepended
+}
+
+func isEmptyResponsesInstructions(instructions json.RawMessage) bool {
+	if len(instructions) == 0 {
+		return true
+	}
+	trimmed := strings.TrimSpace(string(instructions))
+	if trimmed == "null" || trimmed == `""` {
+		return true
+	}
+	var s string
+	if err := common.Unmarshal(instructions, &s); err != nil {
+		return false
+	}
+	return strings.TrimSpace(s) == ""
 }

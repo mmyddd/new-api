@@ -29,31 +29,19 @@ func applySystemPromptIfNeeded(c *gin.Context, info *relaycommon.RelayInfo, requ
 
 	systemRole := request.GetSystemRoleName()
 
-	containSystemPrompt := false
-	for _, message := range request.Messages {
-		if message.Role == systemRole {
-			containSystemPrompt = true
-			break
-		}
-	}
-	if !containSystemPrompt {
-		systemMessage := dto.Message{
-			Role:    systemRole,
-			Content: info.ChannelSetting.SystemPrompt,
-		}
-		request.Messages = append([]dto.Message{systemMessage}, request.Messages...)
-		return
-	}
-
-	if !info.ChannelSetting.SystemPromptOverride {
-		return
-	}
-
-	common.SetContextKey(c, constant.ContextKeySystemPromptOverride, true)
 	for i, message := range request.Messages {
 		if message.Role != systemRole {
 			continue
 		}
+		if message.IsEmptyContent() {
+			request.Messages[i].SetStringContent(info.ChannelSetting.SystemPrompt)
+			return
+		}
+		if !info.ChannelSetting.SystemPromptOverride {
+			return
+		}
+
+		common.SetContextKey(c, constant.ContextKeySystemPromptOverride, true)
 		if message.IsStringContent() {
 			request.Messages[i].SetStringContent(info.ChannelSetting.SystemPrompt + "\n" + message.StringContent())
 			return
@@ -68,6 +56,13 @@ func applySystemPromptIfNeeded(c *gin.Context, info *relaycommon.RelayInfo, requ
 		request.Messages[i].Content = contents
 		return
 	}
+
+	// 请求中没有系统提示，则在最前面插入渠道系统提示词
+	systemMessage := dto.Message{
+		Role:    systemRole,
+		Content: info.ChannelSetting.SystemPrompt,
+	}
+	request.Messages = append([]dto.Message{systemMessage}, request.Messages...)
 }
 
 func chatCompletionsViaResponses(c *gin.Context, info *relaycommon.RelayInfo, adaptor channel.Adaptor, request *dto.GeneralOpenAIRequest) (*dto.Usage, *types.NewAPIError) {

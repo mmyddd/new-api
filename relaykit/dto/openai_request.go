@@ -673,6 +673,33 @@ func (m *Message) ParseContent() []MediaContent {
 	return contentList
 }
 
+// IsEmptyContent reports whether the message carries no meaningful text:
+// nil content, an empty/whitespace-only string, or content parts without any
+// non-empty text. Used to decide whether a channel system prompt should be
+// injected in place of an existing (but empty) system message.
+func (m *Message) IsEmptyContent() bool {
+	if m.Content == nil {
+		return true
+	}
+	if s, ok := m.Content.(string); ok {
+		return strings.TrimSpace(s) == ""
+	}
+	contents := m.ParseContent()
+	for _, c := range contents {
+		if c.Type == ContentTypeText {
+			if strings.TrimSpace(c.Text) != "" {
+				return false
+			}
+			continue
+		}
+		if c.Type != "" {
+			// 图片/音频/文件等非文本内容视为有效内容
+			return false
+		}
+	}
+	return true
+}
+
 // old code
 /*func (m *Message) StringContent() string {
 	if m.parsedStringContent != nil {
